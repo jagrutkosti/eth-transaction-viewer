@@ -1,6 +1,5 @@
 export type HttpResponse = {
-  status?: number;
-  error?: string;
-  message?: string;
+  isError: boolean;
+  message: string;
   result?: string | number | [];
 };

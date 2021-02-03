@@ -3,11 +3,18 @@ import {
   Button,
   Container,
   CssBaseline,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
   FormControl,
   InputLabel,
+  Link,
   MenuItem,
   Paper,
   Select,
+  Snackbar,
   Table,
   TableBody,
   TableCell,
@@ -17,9 +24,12 @@ import {
   TextField,
   Typography,
 } from '@material-ui/core';
+import MuiAlert from '@material-ui/lab/Alert';
 import { makeStyles } from '@material-ui/core/styles';
 import { Network, EtherscanTransaction } from '../models';
 import { getEthAddressBalance, getEthTransactions } from '../services';
+import { ethers } from 'ethers';
+import QRCode from 'react-qr-code';
 
 const useStyles = makeStyles((theme) => ({
   paper: {
@@ -47,11 +57,17 @@ const useStyles = makeStyles((theme) => ({
   table: {
     minWidth: 650,
     width: '100%',
+    margin: 25,
   },
 }));
 
 export const EthTransactions: React.FC = () => {
   const classes = useStyles();
+
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [isError, setIsError] = useState<boolean>(false);
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+
   const [network, setNetwork] = useState<Network>(Network.Mainnet);
   const [ethAddress, setEthAddress] = useState<string>('');
   const [balance, setBalance] = useState<number>(0);
@@ -65,28 +81,37 @@ export const EthTransactions: React.FC = () => {
     setNetwork(value as Network);
   };
 
-  const convertWeiToEth = (wei: number): number => {
-    return Number((wei / 1000000000000000000).toFixed(18));
+  const handleSnackbarClose = () => {
+    setIsError(false);
+    setErrorMessage('');
   };
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   const handleSubmit = async () => {
-    const balance = await getEthAddressBalance({ ethAddress, network });
+    if (ethers.utils.isAddress(ethAddress)) {
+      const balanceResponse = await getEthAddressBalance({ ethAddress, network });
+      const transactionResponse = await getEthTransactions({ ethAddress, network });
 
-    if (balance.message === 'OK') {
-      setBalance(convertWeiToEth(balance.result as number));
+      if (!balanceResponse.isError && !transactionResponse.isError) {
+        const sortingTransactions = transactionResponse.result as EtherscanTransaction[];
+        sortingTransactions.sort((a, b) => new Date(b.timeStamp).getTime() - new Date(a.timeStamp).getTime());
+
+        setBalance(convertWeiToEth(balanceResponse.result as number));
+        setLastTenTransactions(sortingTransactions);
+      } else {
+        setBalance(0);
+        setLastTenTransactions([]);
+        setErrorMessage(balanceResponse.message + ', ' + transactionResponse.message);
+        setIsError(true);
+      }
     } else {
-      setBalance(0);
-      console.error(balance.error);
+      setErrorMessage('Invalid Ethereum Address');
+      setIsError(true);
     }
+  };
 
-    const transactions = await getEthTransactions({ ethAddress, network });
-
-    if (transactions.message === 'OK') {
-      setLastTenTransactions(transactions.result as EtherscanTransaction[]);
-    } else {
-      setLastTenTransactions([]);
-      console.error(transactions.error);
-    }
+  const convertWeiToEth = (wei: number): number => {
+    return Number((wei / 1000000000000000000).toFixed(18));
   };
 
   const renderTable = () => {
@@ -120,8 +145,41 @@ export const EthTransactions: React.FC = () => {
     );
   };
 
+  const renderOverlayComponents = () => {
+    return (
+      <>
+        <Snackbar open={isError} autoHideDuration={5000} onClose={handleSnackbarClose}>
+          <MuiAlert elevation={6} variant="filled" onClose={handleSnackbarClose} severity="error">
+            {errorMessage}
+          </MuiAlert>
+        </Snackbar>
+
+        <Dialog
+          open={isDialogOpen}
+          onClose={() => setIsDialogOpen(false)}
+          aria-labelledby="alert-dialog-title"
+          aria-describedby="alert-dialog-description"
+        >
+          <DialogTitle id="alert-dialog-title">{'Scan the QR code to get the Ethereum Address'}</DialogTitle>
+          <DialogContent>
+            <DialogContentText id="alert-dialog-description" align="center">
+              <QRCode value={ethAddress} />
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setIsDialogOpen(false)} color="primary" autoFocus>
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </>
+    );
+  };
+
   return (
     <>
+      {renderOverlayComponents()}
+
       <Container component="main" maxWidth="xs">
         <CssBaseline />
         <div className={classes.paper}>
@@ -156,11 +214,19 @@ export const EthTransactions: React.FC = () => {
               Get Info
             </Button>
           </form>
-          <div>
-            <b>Balance: {balance} Ethers</b>
-          </div>
         </div>
       </Container>
+      <div>
+        {ethAddress.length > 0 && balance > 0 && (
+          <>
+            Balance of address: &nbsp;
+            <Link component="button" onClick={() => setIsDialogOpen(true)}>
+              {ethAddress}
+            </Link>
+            &nbsp; = {balance} Ethers
+          </>
+        )}
+      </div>
       {lastTenTransactions && lastTenTransactions.length > 0 && renderTable()}
     </>
   );

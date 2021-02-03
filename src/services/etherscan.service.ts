@@ -13,10 +13,7 @@ export const getEthAddressBalance = async ({ ethAddress, network }: EtherscanReq
   const urlWithParams = baseUrl + '&action=balance' + '&address=' + ethAddress + '&apikey=' + API_KEY;
 
   const res = await fetch(urlWithParams);
-  return await res
-    .json()
-    .then((res) => res)
-    .catch((err) => err);
+  return parseResponse(res);
 };
 
 export const getEthTransactions = async ({ ethAddress, network }: EtherscanRequest): Promise<HttpResponse> => {
@@ -30,8 +27,15 @@ export const getEthTransactions = async ({ ethAddress, network }: EtherscanReque
     API_KEY;
 
   const res = await fetch(urlWithParams);
-  return await res
-    .json()
-    .then((res) => res)
-    .catch((err) => err);
+  return parseResponse(res);
+};
+
+const parseResponse = async (response: Response): Promise<HttpResponse> => {
+  const resJson = await response.json();
+
+  return {
+    isError: resJson.message === 'NOTOK' ? true : false,
+    message: resJson.message === 'NOTOK' ? resJson.result : resJson.message,
+    result: resJson.result,
+  };
 };
