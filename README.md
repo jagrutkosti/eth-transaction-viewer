@@ -42,3 +42,19 @@ It correctly bundles React in production mode and optimizes the build for the be
 
 The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
+
+## Comments
+
+### Things not implemented
+
+1. A component to show last 5 used address.
+2. The transactions are sorted with time, but the time displayed is in milliseconds. Didn't convert to Date.
+3. Basic test only (which come by default in create-react-script).
+
+Reason: The email asked to spend no more than 5 hours. I couldn't do it in that time.
+
+### Future extensibility
+
+I made an assumption to keep it simple. I could have used state management libraries or gone with Context API from React, but that seemed like an overkill to me. But to extend this project, the initial structure is good enough to build on top of it. A minor refactoring is expected.
+
+I hope this was enough for now. Would love to have a talk about the code!
